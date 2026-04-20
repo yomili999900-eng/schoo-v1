@@ -1,0 +1,131 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // 0. Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helper Functions ---
+    
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'yomili999900@gmail.com' ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+      );
+    }
+
+    function isPremium() {
+      return isSignedIn() && (getUserData().isPremium == true || isAdmin());
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- Entity Validations ---
+
+    function isValidExamPaper(data) {
+      return data.keys().hasAll(['title', 'classId', 'subjectId', 'type', 'subjectUrl', 'correctionUrl', 'createdAt', 'authorId'])
+        && data.keys().size() == 8
+        && data.title is string && data.title.size() <= 200
+        && data.classId is string && data.classId.size() <= 20
+        && data.subjectId is string && data.subjectId.size() <= 32
+        && data.type in ['apprentissage', 'examen']
+        && data.subjectUrl is string && data.subjectUrl.size() <= 1024
+        && data.correctionUrl is string && data.correctionUrl.size() <= 1024
+        // Allow date strings or server timestamps
+        && (data.createdAt is string || data.createdAt == request.time)
+        && data.authorId == request.auth.uid;
+    }
+
+    function isValidResource(data) {
+      return data.keys().hasAll(['title', 'url', 'type', 'classId', 'createdAt'])
+        && data.title is string && data.title.size() <= 200
+        && data.url is string && data.url.size() <= 1024
+        && data.type in ['annale', 'cours', 'exercice']
+        && data.classId is string && data.classId.size() <= 20
+        && (data.createdAt is string || data.createdAt == request.time);
+    }
+
+    function isValidUserProfile(data) {
+      return data.email == request.auth.token.email
+        && data.displayName is string && data.displayName.size() <= 100
+        && data.role in ['student', 'admin']
+        && data.isPremium is bool
+        && data.freeAccessCount is int && data.freeAccessCount >= 0;
+    }
+
+    // --- Collection Rules ---
+
+    match /papers/{paperId} {
+      allow get: if isValidId(paperId);
+      allow list: if true; 
+      
+      allow create: if isAdmin() && isValidExamPaper(incoming());
+      allow update: if isAdmin() && isValidExamPaper(incoming()) 
+        && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'type', 'subjectUrl', 'correctionUrl']);
+      allow delete: if isAdmin();
+    }
+
+    match /resources/{resourceId} {
+      allow get: if isValidId(resourceId);
+      allow list: if true;
+      
+      allow create: if isAdmin() && isValidResource(incoming());
+      allow update: if isAdmin() && isValidResource(incoming())
+        && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'url', 'type', 'classId']);
+      allow delete: if isAdmin();
+    }
+
+    match /users/{userId} {
+      allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      
+      allow create: if isSignedIn() && request.auth.uid == userId 
+        && isValidUserProfile(incoming())
+        && incoming().role == 'student' 
+        && incoming().isPremium == false;
+      
+      allow update: if isSignedIn() && request.auth.uid == userId
+        && isValidUserProfile(incoming())
+        && incoming().role == existing().role 
+        && incoming().isPremium == existing().isPremium 
+        && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'freeAccessCount']);
+      
+      allow update: if isAdmin() 
+        && isValidUserProfile(incoming())
+        && (
+           incoming().diff(existing()).affectedKeys().hasOnly(['isPremium', 'premiumUntil', 'role']) ||
+           incoming().diff(existing()).affectedKeys().hasOnly(['role', 'isPremium'])
+        );
+    }
+
+    match /classes/{classId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /subjects/{subjectId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+  }
+}

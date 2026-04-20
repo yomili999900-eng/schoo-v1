@@ -1,0 +1,114 @@
+{
+  "entities": {
+    "ExamPaper": {
+      "title": "Exam Paper",
+      "description": "A school exam paper with its correction",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "description": "Title of the paper" },
+        "classId": { "type": "string", "description": "ID of the class level" },
+        "subjectId": { "type": "string", "description": "ID of the subject" },
+        "type": { "type": "string", "enum": ["apprentissage", "examen"] },
+        "subjectUrl": { "type": "string", "format": "uri" },
+        "correctionUrl": { "type": "string", "format": "uri" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "authorId": { "type": "string", "description": "UID of the admin who added this" }
+      },
+      "required": ["title", "classId", "subjectId", "type", "subjectUrl", "correctionUrl", "createdAt", "authorId"]
+    },
+    "EducationalResource": {
+      "title": "Educational Resource",
+      "description": "Additional materials like annals or exercises",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "url": { "type": "string", "format": "uri" },
+        "type": { "type": "string", "enum": ["annale", "cours", "exercice"] },
+        "classId": { "type": "string" },
+        "size": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "url", "type", "classId", "createdAt"]
+    },
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "User subscription and role data",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string", "enum": ["student", "admin"] },
+        "isPremium": { "type": "boolean" },
+        "premiumUntil": { "type": "string", "format": "date-time" },
+        "freeAccessCount": { "type": "integer" }
+      },
+      "required": ["email", "displayName", "role", "isPremium", "freeAccessCount"]
+    },
+    "ClassLevel": {
+      "title": "Class Level",
+      "description": "Educational levels (e.g., 6ème, Terminale)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "level": { "type": "string", "enum": ["Collège", "Lycée"] }
+      },
+      "required": ["id", "name", "level"]
+    },
+    "Subject": {
+      "title": "Subject",
+      "description": "Academic subjects (e.g., Maths, SVT)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "classIds": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "required": ["name", "classIds"]
+    },
+    "Payment": {
+      "title": "Payment",
+      "description": "Payment transactions for premium access",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "token": { "type": "string", "description": "MoneyFusion token" },
+        "amount": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "paid", "failure", "cancelled"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "token", "amount", "status", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/papers/{paperId}": {
+      "schema": "ExamPaper",
+      "description": "Collection of exam papers"
+    },
+    "/resources/{resourceId}": {
+      "schema": "EducationalResource",
+      "description": "Collection of additional educational resources"
+    },
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profile data"
+    },
+    "/classes/{classId}": {
+      "schema": "ClassLevel",
+      "description": "Collection of class levels"
+    },
+    "/subjects/{subjectId}": {
+      "schema": "Subject",
+      "description": "Collection of academic subjects"
+    },
+    "/payments/{paymentId}": {
+      "schema": "Payment",
+      "description": "Collection of payment transactions"
+    }
+  }
+}
